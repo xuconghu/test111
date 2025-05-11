@@ -36,58 +36,178 @@
       color: #6b7280;
       text-align: center;
       max-width: 400px;
+      margin-bottom: 30px;
+    }
+    .progress-container {
+      width: 300px;
+      height: 8px;
+      background-color: #e5e7eb;
+      border-radius: 4px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+    .progress-bar {
+      height: 100%;
+      background-color: #4a6bff;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .error-message {
+      color: #ef4444;
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ef4444;
+      border-radius: 4px;
+      background-color: rgba(239, 68, 68, 0.1);
+      display: none;
+    }
+    .button {
+      padding: 8px 16px;
+      background-color: #4a6bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-top: 10px;
+      display: none;
+    }
+    .button:hover {
+      background-color: #3a5aee;
     }
   </style>
 </head>
 <body>
   <div class="loader"></div>
   <h1>智视未来</h1>
-  <p>正在加载资源，请稍候...</p>
+  <p id="status-message">正在加载资源，请稍候...</p>
+  
+  <div class="progress-container">
+    <div class="progress-bar" id="progress-bar"></div>
+  </div>
+
+  <div class="error-message" id="error-message">
+    加载资源时出现问题。请尝试以下选项：
+  </div>
+
+  <button id="retry-button" class="button">重试加载</button>
+  <button id="static-button" class="button">使用静态版本</button>
 
   <script>
+    const BASE_URL = 'https://xuconghu.github.io/test111';
+    const progressBar = document.getElementById('progress-bar');
+    const statusMessage = document.getElementById('status-message');
+    const errorMessage = document.getElementById('error-message');
+    const retryButton = document.getElementById('retry-button');
+    const staticButton = document.getElementById('static-button');
+    
+    let loadedResources = 0;
+    let totalResources = 0;
+    let hasErrors = false;
+    
     // 预加载所有必要的资源
     function preloadResources() {
       const resources = [
-        'https://xuconghu.github.io/test111/_next/static/css/76cfff4c24f026a8.css',
-        'https://xuconghu.github.io/test111/_next/static/chunks/webpack-d795ab09e6cdf4f1.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/main-app-304e637656ebcdc6.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/684-532ad7394de2d0ee.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/4bd1b696-71c528fed80023f1.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/807-3710092f442c8cce.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/app/layout-8c1da133cc5e625f.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/app/page-dde548461c0f6929.js',
-        'https://xuconghu.github.io/test111/_next/static/chunks/845-47c6b98efc383ebc.js'
+        '_next/static/css/76cfff4c24f026a8.css',
+        '_next/static/chunks/webpack-d795ab09e6cdf4f1.js',
+        '_next/static/chunks/main-app-304e637656ebcdc6.js',
+        '_next/static/chunks/684-532ad7394de2d0ee.js',
+        '_next/static/chunks/4bd1b696-71c528fed80023f1.js',
+        '_next/static/chunks/807-3710092f442c8cce.js',
+        '_next/static/chunks/app/layout-8c1da133cc5e625f.js',
+        '_next/static/chunks/app/page-dde548461c0f6929.js',
+        '_next/static/chunks/845-47c6b98efc383ebc.js'
       ];
-
-      const promises = resources.map(url => {
-        if (url.endsWith('.css')) {
-          return fetch(url);
-        } else {
-          return new Promise((resolve, reject) => {
+      
+      totalResources = resources.length;
+      updateProgress(0);
+      
+      const promises = resources.map((url, index) => {
+        const fullUrl = `${BASE_URL}/${url}`;
+        
+        return new Promise((resolve, reject) => {
+          if (url.endsWith('.css')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = fullUrl;
+            link.onload = () => {
+              loadedResources++;
+              updateProgress(loadedResources / totalResources * 100);
+              resolve();
+            };
+            link.onerror = (error) => {
+              console.error(`Failed to load CSS: ${url}`, error);
+              hasErrors = true;
+              reject(error);
+            };
+            document.head.appendChild(link);
+          } else {
             const script = document.createElement('script');
-            script.src = url;
+            script.src = fullUrl;
             script.async = true;
-            script.onload = resolve;
-            script.onerror = reject;
+            script.onload = () => {
+              loadedResources++;
+              updateProgress(loadedResources / totalResources * 100);
+              resolve();
+            };
+            script.onerror = (error) => {
+              console.error(`Failed to load script: ${url}`, error);
+              hasErrors = true;
+              reject(error);
+            };
             document.head.appendChild(script);
-          });
-        }
+          }
+        });
       });
 
       return Promise.all(promises);
     }
-
+    
+    // 更新进度条
+    function updateProgress(percent) {
+      progressBar.style.width = `${percent}%`;
+      statusMessage.textContent = `正在加载资源 (${Math.round(percent)}%)...`;
+    }
+    
+    // 显示错误信息
+    function showError() {
+      errorMessage.style.display = 'block';
+      retryButton.style.display = 'inline-block';
+      staticButton.style.display = 'inline-block';
+    }
+    
     // 加载完资源后重定向到主页
-    preloadResources()
-      .then(() => {
-        window.location.href = 'https://xuconghu.github.io/test111/index.html';
-      })
-      .catch(error => {
-        console.error('资源加载失败:', error);
-        setTimeout(() => {
-          window.location.href = 'https://xuconghu.github.io/test111/index.html';
-        }, 3000);
-      });
+    function startLoading() {
+      preloadResources()
+        .then(() => {
+          statusMessage.textContent = '加载完成，正在跳转...';
+          setTimeout(() => {
+            window.location.href = `${BASE_URL}/index.html`;
+          }, 500);
+        })
+        .catch(error => {
+          console.error('资源加载失败:', error);
+          statusMessage.textContent = '部分资源加载失败';
+          showError();
+        });
+    }
+    
+    // 添加按钮事件监听
+    retryButton.addEventListener('click', () => {
+      errorMessage.style.display = 'none';
+      retryButton.style.display = 'none';
+      staticButton.style.display = 'none';
+      loadedResources = 0;
+      hasErrors = false;
+      startLoading();
+    });
+    
+    staticButton.addEventListener('click', () => {
+      window.location.href = `${BASE_URL}/static.html`;
+    });
+    
+    // 开始加载
+    startLoading();
   </script>
 </body>
 </html> 
